@@ -37,6 +37,7 @@ export interface HistoryReq {
 
 export interface CostNode {
   item_id: string
+  name?: string
   amount: number
   cost: number | null
   source: 'market' | 'craft' | 'excluded' | 'none'

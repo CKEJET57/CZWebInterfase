@@ -50,7 +50,7 @@ function CostNodeRow({ node, depth }: { node: CostNode; depth: number }) {
     <div>
       <div className="flex items-center gap-2 py-0.5 hover:bg-slate-900/50 rounded px-2" style={{ paddingLeft: pad }}>
         <span className="w-12 text-slate-500 truncate text-xs">{node.item_id}</span>
-        <span className="w-44 truncate text-slate-300">{node.item_id}</span>
+        <span className="w-44 truncate text-slate-300">{node.name || node.item_id}</span>
         <span className="w-12 text-right text-slate-400">×{node.amount}</span>
         <span className={`px-1.5 py-0.5 rounded text-xs ${tag.cls}`}>{tag.label}</span>
         <span className="w-24 text-right text-slate-400">{fmtPrice(node.unit_price)}</span>
