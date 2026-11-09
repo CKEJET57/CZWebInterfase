@@ -7,7 +7,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner'
 import { ErrorBox } from '../components/ErrorBox'
 
 export function RecipePage() {
-  const [itemId, setItemId] = useState('wj2zp')
+  const [itemId, setItemId] = useState('')
   const [recursive, setRecursive] = useState(true)
   const [noHistory, setNoHistory] = useState(true)
   const [fee, setFee] = useState(5)
@@ -47,15 +47,15 @@ export function RecipePage() {
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-4">
         <div>
           <label className="block text-xs text-slate-400 mb-1">Предмет</label>
-          <ItemPicker value={itemId} onChange={setItemId} />
+          <ItemPicker value={itemId} onChange={setItemId} craftable/>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Num label="Комиссия %" value={fee} onChange={setFee} step={0.5} />
-          <Num label="Max depth" value={maxDepth} onChange={setMaxDepth} />
-          <Num label="Workers" value={workers} onChange={setWorkers} />
+          <Num label="Комиссия аукциона (%)" value={fee} onChange={setFee} step={0.5} />
+          <Num label="Макс. глубина" value={maxDepth} onChange={setMaxDepth} />
+          <Num label="Потоков (запросов)" value={workers} onChange={setWorkers} />
           <div>
-            <label className="block text-xs text-slate-400 mb-1">Исключить (id,id)</label>
+            <label className="block text-xs text-slate-400 mb-1">Исключить (ID через запятую)</label>
             <input value={exclude} onChange={e => setExclude(e.target.value)}
               className="w-full rounded-md bg-slate-900 border border-slate-700 px-2 py-1.5 text-sm"
               placeholder="7rp7,404p" />
@@ -63,9 +63,9 @@ export function RecipePage() {
         </div>
 
         <div className="flex flex-wrap gap-4 text-sm">
-          <Check label="Recursive" checked={recursive} onChange={setRecursive} />
-          <Check label="No history" checked={noHistory} onChange={setNoHistory} />
-          <Check label="Ignore missing" checked={ignoreMissing} onChange={setIgnoreMissing} />
+          <Check label="Рекурсивный крафт (считать ингредиенты)" checked={recursive} onChange={setRecursive} />
+          <Check label="Без истории (только активные лоты)" checked={noHistory} onChange={setNoHistory} />
+          <Check label="Игнорировать ошибки цен" checked={ignoreMissing} onChange={setIgnoreMissing} />
         </div>
 
         <button onClick={run} disabled={loading || !itemId}

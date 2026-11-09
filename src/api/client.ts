@@ -37,8 +37,13 @@ export const api = {
   baseUrl: BASE,
 
   health: () => request<{ ok: boolean }>('/health'),
-  items: (q?: string) =>
-    request<Item[]>(`/items${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  items: (q?: string, craftable?: boolean) => {
+    const params = new URLSearchParams()
+    if (q) params.append('q', q)
+    if (craftable) params.append('craftable', 'true')
+    const qs = params.toString()
+    return request<Item[]>(`/items${qs ? `?${qs}` : ''}`)
+  },
   categories: () => request<Category[]>('/categories'),
 
   recipe: (body: RecipeReq) =>
