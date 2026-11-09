@@ -7,7 +7,6 @@ const items = [
   { to: '/batch', label: 'Топ по категориям' },
   { to: '/history', label: 'История' },
   { to: '/character', label: 'Персонаж' },
-  { to: '/exclusions', label: 'Исключения' },
 ]
 
 export function Layout() {

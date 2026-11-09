@@ -4,7 +4,7 @@ import type {
 } from '../types/api'
 
 const RAW = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
-const BASE = RAW.replace(/\/+$/, '')   // без хвостового слэша
+const BASE = RAW.replace(/\/+$/, '')
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let r: Response
@@ -14,7 +14,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { 'Content-Type': 'application/json', ...init?.headers },
     })
   } catch (e) {
-    // Сеть / CORS / DNS / mixed content
     throw new Error(
       `Не удалось связаться с API по адресу ${BASE}. ` +
       `Проверьте, что бэкенд запущен и CORS разрешён. ` +
@@ -69,18 +68,4 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-
-  exclusions: () => request<{ items: string[] }>('/exclusions'),
-  addExclusions: (items: string[]) =>
-    request<{ items: string[] }>('/exclusions/add', {
-      method: 'POST',
-      body: JSON.stringify({ items }),
-    }),
-  removeExclusions: (items: string[]) =>
-    request<{ items: string[] }>('/exclusions/remove', {
-      method: 'POST',
-      body: JSON.stringify({ items }),
-    }),
-  clearExclusions: () =>
-    request<{ items: string[] }>('/exclusions/clear', { method: 'POST' }),
 }

@@ -16,7 +16,6 @@ export function HomePage() {
         <Card to="/batch" title="🏆 Топ по категориям" desc="Пакетный анализ: самые прибыльные рецепты." />
         <Card to="/history" title="🧾 История покупок" desc="Статистика сделок и график цен." />
         <Card to="/character" title="🧑 Профиль персонажа" desc="Публичные данные по нику." />
-        <Card to="/exclusions" title="🎁 Исключения" desc="Ингредиенты с нулевой стоимостью." />
       </div>
     </div>
   )

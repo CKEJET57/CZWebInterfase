@@ -86,8 +86,8 @@ export interface RecipeAnalysis {
   missing_energy: boolean
   partial: boolean
   excluded_summary: Record<string, number>
-  required_total: Record<string, { amount: number; source: string }>
-  full_tree: Record<string, { amount: number; source: string }>
+  required_total: Record<string, { amount: number; source: string; name?: string }>
+  full_tree: Record<string, { amount: number; source: string; name?: string }>
 }
 
 export interface RecipeResp { item_id: string; recipes: RecipeAnalysis[] }
