@@ -49,38 +49,38 @@ export function BatchPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Sel label="Верстак" value={bench} onChange={setBench} options={[
             { value: '', label: 'Любой' },
-            { value: 'workbench', label: 'workbench' },
-            { value: 'laboratory_table', label: 'laboratory_table' },
-            { value: 'kitchen_table', label: 'kitchen_table' },
+            { value: 'workbench', label: 'Верстак' },
+            { value: 'laboratory_table', label: 'Лабораторный стол' },
+            { value: 'kitchen_table', label: 'Кухонный стол' },
           ]} />
           <Sel label="Категория" value={category} onChange={setCategory} options={[
             { value: '', label: 'Все' },
             ...categories.map(c => ({ value: c.id, label: c.name })),
           ]} />
           <Sel label="Сортировка" value={sort} onChange={v => setSort(v as any)} options={[
-            { value: 'margin', label: 'по марже' },
-            { value: 'profit', label: 'по прибыли' },
+            { value: 'margin', label: 'По марже' },
+            { value: 'profit', label: 'По прибыли' },
           ]} />
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Num label="Top N" value={top} onChange={setTop} />
-          <Num label="Max recipes" value={maxRecipes} onChange={setMaxRecipes} />
-          <Num label="Workers" value={workers} onChange={setWorkers} />
+          <Num label="Топ N" value={top} onChange={setTop} />
+          <Num label="Макс. рецептов" value={maxRecipes} onChange={setMaxRecipes} />
+          <Num label="Потоков (запросов)" value={workers} onChange={setWorkers} />
           <div className="flex flex-col gap-1 justify-end">
-            <Check label="Per category" checked={perCategory} onChange={setPerCategory} />
-            <Check label="Recursive" checked={recursive} onChange={setRecursive} />
-            <Check label="No history" checked={noHistory} onChange={setNoHistory} />
+            <Check label="По категориям" checked={perCategory} onChange={setPerCategory} />
+            <Check label="Рекурсивный крафт" checked={recursive} onChange={setRecursive} />
+            <Check label="Без истории (только лоты)" checked={noHistory} onChange={setNoHistory} />
           </div>
         </div>
 
         <button onClick={run} disabled={loading}
           className="rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 text-sm font-semibold">
-          {loading ? 'Считаю…' : 'Запустить batch'}
+          {loading ? 'Считаю…' : 'Запустить анализ'}
         </button>
       </div>
 
-      {loading && <LoadingSpinner label="Batch может занять 1–3 минуты" />}
+      {loading && <LoadingSpinner label="Анализ может занять 1–3 минуты" />}
       {error && <ErrorBox error={error} />}
       {data && (
         <div className="space-y-4">
@@ -91,10 +91,10 @@ export function BatchPage() {
           {data.sections.map((sec, si) => (
             <section key={si} className="space-y-3">
               <h2 className="text-lg font-semibold text-emerald-400">
-                {sec.category_name} — топ-{data.top_n} по {data.sort}
+                {sec.category_name} — Топ-{data.top_n} {data.sort === 'margin' ? 'по марже' : 'по прибыли'}
               </h2>
               {sec.items.length === 0 && (
-                <div className="text-sm text-slate-500">нет рецептов с полными ценами</div>
+                <div className="text-sm text-slate-500">Нет рецептов с полными ценами</div>
               )}
               {sec.items.map((a, i) => <RecipeCard key={i} a={a} />)}
             </section>

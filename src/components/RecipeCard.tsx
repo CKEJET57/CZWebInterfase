@@ -4,15 +4,14 @@ import { RecipeTree } from './RecipeTree'
 
 interface RecipeCardProps {
   a: RecipeAnalysis
-  excludedIds: string[]
-  onToggleExclude: (id: string) => void
+  excludedIds?: string[]           // <-- Сделали необязательным
+  onToggleExclude?: (id: string) => void // <-- Сделали необязательным
 }
 
-export function RecipeCard({ a, excludedIds, onToggleExclude }: RecipeCardProps) {
+export function RecipeCard({ a, excludedIds = [], onToggleExclude }: RecipeCardProps) {
   const perks = a.requirements?.perks ?? {}
   const features = a.requirements?.features ?? []
 
-  // Защита от undefined, если бэкенд старый
   const fullTree = a.full_tree || {}
   const fullTreeList = Object.entries(fullTree).map(([id, data]) => ({
     id,
@@ -58,7 +57,10 @@ export function RecipeCard({ a, excludedIds, onToggleExclude }: RecipeCardProps)
       {fullTreeList.length > 0 && (
         <div className="pt-4 border-t border-slate-800">
           <div className="text-sm font-semibold text-emerald-300 flex items-center gap-2 mb-2">
-            🌳 Базовые ресурсы <span className="text-xs font-normal text-slate-500">(кликните, чтобы добавить/убрать со склада)</span>
+            🌳 Базовые ресурсы 
+            {onToggleExclude && (
+              <span className="text-xs font-normal text-slate-500">(кликните, чтобы добавить/убрать со склада)</span>
+            )}
           </div>
           <div className="max-h-60 overflow-y-auto rounded border border-slate-800 bg-slate-900/60 divide-y divide-slate-800/50 text-sm">
             {fullTreeList.map(i => {
@@ -68,7 +70,7 @@ export function RecipeCard({ a, excludedIds, onToggleExclude }: RecipeCardProps)
                   key={i.id}
                   item={i}
                   isExcluded={isExcluded}
-                  onToggle={() => onToggleExclude(i.id)}
+                  onToggle={onToggleExclude ? () => onToggleExclude(i.id) : undefined}
                 />
               )
             })}
@@ -101,14 +103,16 @@ function Stat({ label, value }: { label: string; value: string }) {
 function ResourceRow({ item, isExcluded, onToggle }: {
   item: { id: string; amount: number; source: string; name?: string }
   isExcluded: boolean
-  onToggle: () => void
+  onToggle?: () => void
 }) {
   const tag = sourceTag(isExcluded ? 'excluded' : 'market')
 
   return (
     <div
       onClick={onToggle}
-      className={`flex items-center gap-3 px-3 py-1.5 transition select-none cursor-pointer ${
+      className={`flex items-center gap-3 px-3 py-1.5 transition select-none ${
+        onToggle ? 'cursor-pointer' : 'cursor-default'
+      } ${
         isExcluded 
           ? 'bg-slate-800/80 ring-1 ring-inset ring-amber-500/30' 
           : 'hover:bg-slate-800/50'
