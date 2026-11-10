@@ -189,4 +189,17 @@ export interface ItemDetails {
   category: string
   icon_url: string | null
   blocks: InfoBlock[]
+  has_variants?: boolean
+  max_variant_level?: number
+}
+
+// ─── Варианты прокачки ───
+export interface ItemVariant {
+  level: number
+  blocks: InfoBlock[]
+}
+
+export interface ItemVariantsResp {
+  available: boolean
+  variants: ItemVariant[]
 }

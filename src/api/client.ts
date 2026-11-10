@@ -1,6 +1,6 @@
 import type {
   BatchReq, BatchResp, Category, HistoryReq, HistoryResp,
-  Item, ItemDetails, RecipeReq, RecipeResp,
+  Item, ItemDetails, ItemVariantsResp, RecipeReq, RecipeResp,
 } from '../types/api'
 
 const RAW = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
@@ -48,7 +48,10 @@ export const api = {
   categories: () => request<Category[]>('/categories'),
 
   itemDetails: (itemId: string) =>
-    request<ItemDetails>(`/item-details/${itemId}`),
+    request<ItemDetails>(`/item-details/${encodeURIComponent(itemId)}`),
+
+  itemVariants: (itemId: string) =>
+    request<ItemVariantsResp>(`/item-details/${encodeURIComponent(itemId)}/variants`),
 
   recipe: (body: RecipeReq) =>
     request<RecipeResp>('/recipe', {
