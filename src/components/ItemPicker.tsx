@@ -72,7 +72,6 @@ export function ItemPicker({ value, onChange, placeholder, craftable = false }: 
               }}
             >
               <span className="truncate font-medium text-slate-200">{i.name}</span>
-              <span className="text-xs text-slate-500 font-mono self-center">{i.item_id}</span>
             </button>
           ))}
         </div>

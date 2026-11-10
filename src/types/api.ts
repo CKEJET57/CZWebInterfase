@@ -9,6 +9,7 @@ export interface AnalysisReqBase {
   workers?: number
   ignore_missing?: boolean
   exclude?: string[]
+  use_local_data?: boolean
 }
 
 export interface RecipeReq extends AnalysisReqBase { item_id: string }

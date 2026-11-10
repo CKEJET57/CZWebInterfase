@@ -3,7 +3,7 @@ import { Layout } from './components/Layout'
 import { HomePage } from './pages/HomePage'
 import { RecipePage } from './pages/RecipePage'
 import { BatchPage } from './pages/BatchPage'
-import { HistoryPage } from './pages/HistoryPage'
+import { ItemPage } from './pages/ItemPage' 
 import { CharacterPage } from './pages/CharacterPage'
 
 export default function App() {
@@ -13,7 +13,7 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="recipe" element={<RecipePage />} />
         <Route path="batch" element={<BatchPage />} />
-        <Route path="history" element={<HistoryPage />} />
+        <Route path="items" element={<ItemPage />} />
         <Route path="character" element={<CharacterPage />} />
       </Route>
     </Routes>

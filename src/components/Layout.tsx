@@ -5,7 +5,7 @@ const items = [
   { to: '/', label: 'Главная', end: true },
   { to: '/recipe', label: 'Рецепт' },
   { to: '/batch', label: 'Топ по категориям' },
-  { to: '/history', label: 'История' },
+  { to: '/items', label: 'Список предметов' },
   { to: '/character', label: 'Персонаж' },
 ]
 

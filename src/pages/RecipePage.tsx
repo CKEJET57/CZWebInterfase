@@ -14,6 +14,7 @@ export function RecipePage() {
   const [maxDepth, setMaxDepth] = useState(12)
   const [workers, setWorkers] = useState(4)
   const [ignoreMissing, setIgnoreMissing] = useState(false)
+  const [useLocal, setUseLocal] = useState(false)
   
   // Состояния для исключений
   const [excludedIds, setExcludedIds] = useState<string[]>([])
@@ -43,7 +44,7 @@ export function RecipePage() {
       const r = await api.recipe({
         item_id: itemId, recursive, no_history: noHistory, fee,
         max_depth: maxDepth, workers, ignore_missing: ignoreMissing,
-        exclude: excludedIds,
+        exclude: excludedIds, use_local_data: useLocal,
       })
       setData(r)
       setLastRunExcludedIds(excludedIds)
@@ -85,6 +86,7 @@ export function RecipePage() {
           <Check label="Рекурсивный крафт" checked={recursive} onChange={setRecursive} />
           <Check label="Без истории (только лоты)" checked={noHistory} onChange={setNoHistory} />
           <Check label="Игнорировать ошибки цен" checked={ignoreMissing} onChange={setIgnoreMissing} />
+          <Check label="Из локальной базы (без запросов к API)" checked={useLocal} onChange={setUseLocal} />
         </div>
 
         <button onClick={run} disabled={loading || !itemId}

@@ -16,6 +16,7 @@ export function BatchPage() {
   const [recursive, setRecursive] = useState(true)
   const [noHistory, setNoHistory] = useState(true)
   const [workers, setWorkers] = useState(2)
+  const [useLocal, setUseLocal] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +33,7 @@ export function BatchPage() {
         category: category || undefined,
         per_category: perCategory, top, max_recipes: maxRecipes,
         sort, recursive, no_history: noHistory, workers,
+        use_local_data: useLocal,
       })
       setData(r)
     } catch (e: any) {
@@ -71,6 +73,7 @@ export function BatchPage() {
             <Check label="По категориям" checked={perCategory} onChange={setPerCategory} />
             <Check label="Рекурсивный крафт" checked={recursive} onChange={setRecursive} />
             <Check label="Без истории (только лоты)" checked={noHistory} onChange={setNoHistory} />
+            <Check label="📦 Из локальной базы (без запросов к API)" checked={useLocal} onChange={setUseLocal} />
           </div>
         </div>
 

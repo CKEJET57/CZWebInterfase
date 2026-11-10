@@ -12,9 +12,9 @@ export function HomePage() {
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card to="/recipe" title="🧮 Расчёт рецепта" desc="Сравнить способ" />
+        <Card to="/recipe" title="🧮 Расчёт рецепта" desc="Сравнить рынок и крафт для предмета по item_id." />
         <Card to="/batch" title="🏆 Топ по категориям" desc="Пакетный анализ: самые прибыльные рецепты." />
-        <Card to="/history" title="🧾 История покупок" desc="Статистика сделок и график цен." />
+        <Card to="/items" title="📋 Список предметов" desc="Описание, рецепт крафта и полная история торгов." />
         <Card to="/character" title="🧑 Профиль персонажа" desc="Публичные данные по нику." />
       </div>
     </div>
