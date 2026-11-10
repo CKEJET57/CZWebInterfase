@@ -1,6 +1,6 @@
 import type {
   BatchReq, BatchResp, Category, HistoryReq, HistoryResp,
-  Item, RecipeReq, RecipeResp,
+  Item, ItemDetails, RecipeReq, RecipeResp,
 } from '../types/api'
 
 const RAW = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
@@ -36,6 +36,7 @@ export const api = {
   baseUrl: BASE,
 
   health: () => request<{ ok: boolean }>('/health'),
+
   items: (q?: string, craftable?: boolean) => {
     const params = new URLSearchParams()
     if (q) params.append('q', q)
@@ -43,7 +44,11 @@ export const api = {
     const qs = params.toString()
     return request<Item[]>(`/items${qs ? `?${qs}` : ''}`)
   },
+
   categories: () => request<Category[]>('/categories'),
+
+  itemDetails: (itemId: string) =>
+    request<ItemDetails>(`/item-details/${itemId}`),
 
   recipe: (body: RecipeReq) =>
     request<RecipeResp>('/recipe', {

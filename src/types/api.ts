@@ -1,3 +1,4 @@
+// ─── Базовые запросы ───
 export interface AnalysisReqBase {
   region?: string
   lang?: string
@@ -12,7 +13,9 @@ export interface AnalysisReqBase {
   use_local_data?: boolean
 }
 
-export interface RecipeReq extends AnalysisReqBase { item_id: string }
+export interface RecipeReq extends AnalysisReqBase {
+  item_id: string
+}
 
 export interface BatchReq extends AnalysisReqBase {
   bench?: 'workbench' | 'laboratory_table' | 'kitchen_table'
@@ -36,6 +39,7 @@ export interface HistoryReq {
   page?: number
 }
 
+// ─── Дерево крафта ───
 export interface CostNode {
   item_id: string
   name?: string
@@ -64,6 +68,7 @@ export interface Ingredient {
   craft_path: CostNode | null
 }
 
+// ─── Анализ рецепта ───
 export interface RecipeAnalysis {
   result_item_id: string
   result_name: string
@@ -71,7 +76,10 @@ export interface RecipeAnalysis {
   category: string
   subcategory: string
   bench: string
-  requirements: { perks?: Record<string, number>; features?: string[] }
+  requirements: {
+    perks?: Record<string, number>
+    features?: string[]
+  }
   ingredients: Ingredient[]
   ingredients_cost: number | null
   energy: number
@@ -91,8 +99,12 @@ export interface RecipeAnalysis {
   full_tree: Record<string, { amount: number; source: string; name?: string }>
 }
 
-export interface RecipeResp { item_id: string; recipes: RecipeAnalysis[] }
+export interface RecipeResp {
+  item_id: string
+  recipes: RecipeAnalysis[]
+}
 
+// ─── Batch ───
 export interface BatchSection {
   category_id: string | null
   category_name: string
@@ -109,6 +121,7 @@ export interface BatchResp {
   sections: BatchSection[]
 }
 
+// ─── История ───
 export interface Deal {
   price: number
   amount: number
@@ -136,5 +149,44 @@ export interface HistoryResp {
   raw_sample?: unknown
 }
 
-export interface Item { item_id: string; name: string }
-export interface Category { id: string; name: string }
+// ─── Справочники ───
+export interface Item {
+  item_id: string
+  name: string
+}
+
+export interface Category {
+  id: string
+  name: string
+}
+
+export interface ItemDetails {
+  description: string | null
+  color: string
+  status: string
+  stats: { name: string; value: string }[]
+  icon_url: string | null
+}
+
+export interface InfoBlockElement {
+  type: 'numeric' | 'key-value'
+  name: string
+  value: string
+  nameColor?: string | null
+  valueColor?: string | null
+}
+
+export interface InfoBlock {
+  type: 'list' | 'text'
+  title?: string
+  elements?: InfoBlockElement[]
+  text?: string
+}
+
+export interface ItemDetails {
+  color: string
+  status: string
+  category: string
+  icon_url: string | null
+  blocks: InfoBlock[]
+}
