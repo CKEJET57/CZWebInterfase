@@ -1,5 +1,6 @@
 import type { RecipeAnalysis } from '../types/api'
 import { fmtPrice, fmtPct, sourceTag } from '../utils/format'
+import { getPerkLabel, getFeatureLabel } from '../utils/recipeLabels';
 import { RecipeTree } from './RecipeTree'
 
 interface RecipeCardProps {
@@ -17,7 +18,7 @@ export function RecipeCard({ a, excludedIds = [], onToggleExclude }: RecipeCardP
     id,
     ...data
   })).sort((x, y) => (x.name || x.id).localeCompare(y.name || y.id))
-
+  console.log(a)
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
@@ -26,7 +27,7 @@ export function RecipeCard({ a, excludedIds = [], onToggleExclude }: RecipeCardP
             {a.result_name} <span className="text-slate-500">×{a.result_amount}</span>
           </h3>
           <div className="text-xs text-slate-400">
-            {a.bench} / {a.category} / {a.subcategory}
+            {a.category} / {a.subcategory}
           </div>
         </div>
         <div className="text-right">
@@ -37,9 +38,34 @@ export function RecipeCard({ a, excludedIds = [], onToggleExclude }: RecipeCardP
         </div>
       </div>
 
-      <div className="text-xs text-slate-400 flex gap-3 flex-wrap">
-        <span>Перки: {Object.keys(perks).join(', ') || '—'}</span>
-        <span>Фичи: {features.join(', ') || '—'}</span>
+      <div className="text-xs text-slate-400 flex flex-col gap-2 mt-2">
+        {/* Навыки */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-slate-500">Навыки:</span>
+            {Object.keys(perks).length > 0 ? (
+              Object.entries(perks).map(([key, lvl]) => (
+            <span key={key} className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300">
+              {getPerkLabel(key)} <span className="text-[10px] text-slate-500 font-mono">(ур.{lvl})</span>
+            </span>
+              ))
+            ) : (
+              <span>—</span>
+            )}
+        </div>
+
+        {/* Оборудование */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-slate-500">Оборудование:</span>
+            {features.length > 0 ? (
+              features.map(f => (
+            <span key={f} className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300">
+              {getFeatureLabel(f)}
+            </span>
+              ))
+            ) : (
+              <span>—</span>
+            )}
+        </div>
       </div>
 
       <div className="border-t border-slate-800 pt-2">

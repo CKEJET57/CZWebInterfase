@@ -10,6 +10,7 @@ import { ItemPicker } from '../components/ItemPicker'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { ErrorBox } from '../components/ErrorBox'
 import { fmtPrice } from '../utils/format'
+import { getRankColor } from '../utils/rankColors';
 
 // Список характеристик, которые нужно показывать в компактном режиме (по картинке)
 const ALLOWED_COMPACT_STATS = [
@@ -183,7 +184,8 @@ function ItemHeader({
         )}
 
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-bold text-slate-100 mb-2 truncate">
+          <h2 className="text-xl font-bold text-slate-100 mb-2 truncate"
+              style={{ color: getRankColor(itemDetails.color) }}>
             {historyData.item_name}
           </h2>
           <div className="flex gap-2 text-xs">
