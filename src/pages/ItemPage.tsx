@@ -1,75 +1,202 @@
 import { useState, useMemo } from 'react'
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  LineChart, Line, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import { api } from '../api/client'
-import type { 
-  HistoryResp, RecipeAnalysis, ItemDetails, ItemVariant, InfoBlock, InfoBlockElement 
+import type {
+  HistoryResp, RecipeAnalysis, ItemDetails, ItemVariant,
+  InfoBlock, InfoBlockElement, Deal,
 } from '../types/api'
 import { ItemPicker } from '../components/ItemPicker'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { ErrorBox } from '../components/ErrorBox'
-import { fmtPrice } from '../utils/format'
-import { getRankColor } from '../utils/rankColors';
+import { RecipeCard } from '../components/RecipeCard'
+import { fmtPrice, fmtPct } from '../utils/format'
+import { getRankColor } from '../utils/rankColors'
 
-// Список характеристик, которые нужно показывать в компактном режиме (по картинке)
 const ALLOWED_COMPACT_STATS = [
   'Тип боеприпасов', 'Тип', 'Вес', 'Прочность', 'Макс. прочность',
   'Скорость передвижения', 'Урон', 'Объем магазина', 'Максимальная дистанция',
   'Скорострельность', 'Перезарядка', 'Тактическая перезарядка',
   'Эргономика оружия', 'Разброс', 'Разброс от бедра', 'Вертикальная отдача',
-  'Горизонтальная отдача', 'Доставание', 'Прицеливание', 'Урон в голову', 'Урон по конечностям'
+  'Горизонтальная отдача', 'Доставание', 'Прицеливание', 'Урон в голову', 'Урон по конечностям',
 ]
+
+const PAGE_SIZE = 30
+
+const WEAPON_MARKERS = [
+  'Урон', 'Объем магазина', 'Разброс', 'Скорострельность', 'Перезарядка',
+  'Урон в голову', 'Урон по конечностям', 'Вертикальная отдача',
+]
+
+const ARMOR_MARKERS = [
+  'Габариты', 'Пулестойкость', 'Защита от разрыва', 'Защита от взрыва',
+]
+
+interface Settings {
+  fee: number
+  maxDepth: number
+  workers: number
+  recursive: boolean
+  noHistory: boolean
+  ignoreMissing: boolean
+  useLocal: boolean
+}
+
+const DEFAULT_SETTINGS: Settings = {
+  fee: 5,
+  maxDepth: 12,
+  workers: 4,
+  recursive: true,
+  noHistory: true,
+  ignoreMissing: false,
+  useLocal: false,
+}
+
+function settingsEqual(a: Settings | null, b: Settings): boolean {
+  if (!a) return false
+  return (
+    a.fee === b.fee && a.maxDepth === b.maxDepth && a.workers === b.workers &&
+    a.recursive === b.recursive && a.noHistory === b.noHistory &&
+    a.ignoreMissing === b.ignoreMissing && a.useLocal === b.useLocal
+  )
+}
 
 export function ItemPage() {
   const [itemId, setItemId] = useState('')
-  const [historyData, setHistoryData] = useState<HistoryResp | null>(null)
-  const [recipeData, setRecipeData] = useState<RecipeAnalysis[] | null>(null)
+  const [quickLoading, setQuickLoading] = useState(false)
+
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [lastRunSettings, setLastRunSettings] = useState<Settings | null>(null)
+
   const [itemDetails, setItemDetails] = useState<ItemDetails | null>(null)
   const [variants, setVariants] = useState<ItemVariant[] | null>(null)
   const [variantLevel, setVariantLevel] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  
-  const [viewMode, setViewMode] = useState<'chart' | 'list'>('chart')
   const [statView, setStatView] = useState<'compact' | 'detailed'>('compact')
-  
-  const [page, setPage] = useState(0)
-  const [limit] = useState(200)
-  const [show] = useState(30)
 
-  async function loadItemData(id: string, p = 0) {
-    if (!id || loading) return
-    setLoading(true); setError(null)
-    setHistoryData(null); setRecipeData(null); setItemDetails(null)
-    setVariants(null); setVariantLevel(0); setPage(p)
+  const [historyData, setHistoryData] = useState<HistoryResp | null>(null)
+  const [allDeals, setAllDeals] = useState<Deal[]>([])
+  const [historyPage, setHistoryPage] = useState(0)
+  const [hasMoreDeals, setHasMoreDeals] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<'chart' | 'list'>('chart')
+
+  const [recipeData, setRecipeData] = useState<RecipeAnalysis[] | null>(null)
+  const [recipeLoading, setRecipeLoading] = useState(false)
+  const [recipeError, setRecipeError] = useState<string | null>(null)
+  const [recipeElapsed, setRecipeElapsed] = useState<number | null>(null)
+
+  const [excludedIds, setExcludedIds] = useState<string[]>([])
+  const [lastRunExcludedIds, setLastRunExcludedIds] = useState<string[]>([])
+
+  const [error, setError] = useState<string | null>(null)
+
+  // ─── Загрузчики ───
+
+  async function loadQuickData(id: string) {
+    setItemDetails(null); setVariants(null); setVariantLevel(0)
+    setHistoryData(null); setAllDeals([]); setHistoryPage(0); setHasMoreDeals(false)
+    setHistoryLoading(true); setError(null)
+    setQuickLoading(true)
 
     try {
-      const historyPromise = api.history({ item_id: id, limit, show, page: p, sort: 'newest' })
-      const recipePromise = api.recipe({ item_id: id, recursive: false, no_history: true, fee: 0 }).catch(() => null)
-      const detailsPromise = api.itemDetails(id).catch(() => null)
-      const variantsPromise = api.itemVariants(id).catch(() => null)
-
-      const [hRes, rRes, dRes, vRes] = await Promise.all([
-        historyPromise, recipePromise, detailsPromise, variantsPromise,
+      const [dRes, vRes, hRes] = await Promise.all([
+        api.itemDetails(id).catch(() => null),
+        api.itemVariants(id).catch(() => null),
+        api.history({ item_id: id, limit: 200, show: PAGE_SIZE, page: 0, sort: 'newest' }),
       ])
-
-      setHistoryData(hRes)
-      if (rRes) setRecipeData(rRes.recipes)
       if (dRes) setItemDetails(dRes)
-      if (vRes?.available && vRes.variants.length > 0) setVariants(vRes.variants)
+      if (vRes?.available) setVariants(vRes.variants)
+      setHistoryData(hRes)
+      setAllDeals(hRes.deals)
+      setHasMoreDeals(hRes.total_pages > 1)
     } catch (e: any) {
       setError(e.message)
     } finally {
-      setLoading(false)
+      setHistoryLoading(false)
+      setQuickLoading(false)
     }
   }
 
-  // Вычисление данных для отображения
-  const isArmorOrClothes = Boolean(
-    itemDetails?.category?.includes('armor') 
-    || itemDetails?.category?.includes('clothes')
-  )
+  async function loadMoreDeals() {
+    if (!itemId || !hasMoreDeals || historyLoading) return
+    setHistoryLoading(true)
+    try {
+      const nextPage = historyPage + 1
+      const h = await api.history({
+        item_id: itemId, limit: 200, show: PAGE_SIZE, page: nextPage, sort: 'newest',
+      })
+      setAllDeals(prev => [...prev, ...h.deals])
+      setHistoryPage(nextPage)
+      setHasMoreDeals(nextPage + 1 < h.total_pages)
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  async function runRecipe(id: string, s: Settings, exclusions: string[]) {
+    if (!id) return
+    setRecipeLoading(true); setRecipeError(null); setRecipeData(null); setRecipeElapsed(null)
+    const t0 = performance.now()
+
+    try {
+      const r = await api.recipe({
+        item_id: id,
+        recursive: s.recursive,
+        no_history: s.noHistory,
+        fee: s.fee,
+        max_depth: s.maxDepth,
+        workers: s.workers,
+        ignore_missing: s.ignoreMissing,
+        exclude: exclusions,
+        use_local_data: s.useLocal,
+      })
+      setRecipeData(r.recipes)
+      setLastRunSettings(s)
+      setLastRunExcludedIds(exclusions)
+    } catch (e: any) {
+      setRecipeError(e.message)
+    } finally {
+      setRecipeLoading(false)
+      setRecipeElapsed((performance.now() - t0) / 1000)
+    }
+  }
+
+  // ─── Обработчики ───
+
+  function onSelectItem(id: string) {
+    setItemId(id)
+    setExcludedIds([])
+    setLastRunExcludedIds([])
+    setRecipeData(null); setRecipeError(null); setRecipeElapsed(null)
+    setStatView('compact')
+    loadQuickData(id)
+    runRecipe(id, settings, [])
+  }
+
+  function onRecalculate() {
+    if (!itemId) return
+    runRecipe(itemId, settings, excludedIds)
+  }
+
+  function toggleExclude(id: string) {
+    setExcludedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  // ─── Производные ───
+
+  const settingsChanged = !settingsEqual(lastRunSettings, settings)
+  const exclusionsChanged =
+    excludedIds.length !== lastRunExcludedIds.length ||
+    excludedIds.some(id => !lastRunExcludedIds.includes(id))
+  const hasPendingChanges = (settingsChanged || exclusionsChanged) && Boolean(lastRunSettings)
+
   const hasUpgrade = Boolean(variants && variants.length > 0)
   const maxLevel = variants?.length ?? 0
 
@@ -82,117 +209,351 @@ export function ItemPage() {
     return itemDetails.blocks
   }, [itemDetails, variants, variantLevel])
 
+  // Описание (первый text-блок с пустым title) отделяем от остальных блоков
+  const description = useMemo(() => {
+    for (const b of displayBlocks) {
+      if (b.type === 'text' && !b.title) return b.text ?? null
+    }
+    return null
+  }, [displayBlocks])
+
+  const blocksWithoutDescription = useMemo(
+    () => displayBlocks.filter(b => !(b.type === 'text' && !b.title)),
+    [displayBlocks],
+  )
+
+  // Категория: сначала пробуем recipeData, потом fallback по названиям статов
+  const isWeapon = useMemo(() => {
+    const cat = (recipeData?.[0]?.category ?? '').toLowerCase()
+    if (cat.includes('weapon')) return true
+    if (cat.includes('armor') || cat.includes('clothes')) return false
+
+    const names = new Set<string>()
+    itemDetails?.blocks.forEach(b => b.elements?.forEach(e => names.add(e.name)))
+    return WEAPON_MARKERS.some(s => names.has(s))
+  }, [itemDetails, recipeData])
+
+  const isArmorOrClothes = useMemo(() => {
+    const cat = (recipeData?.[0]?.category ?? '').toLowerCase()
+    if (cat.includes('armor') || cat.includes('clothes')) return true
+
+    const names = new Set<string>()
+    itemDetails?.blocks.forEach(b => b.elements?.forEach(e => names.add(e.name)))
+    return ARMOR_MARKERS.some(s => names.has(s))
+  }, [itemDetails, recipeData])
+
   const compactElements = useMemo(() => {
     const els: InfoBlockElement[] = []
-    displayBlocks.forEach(block => {
+    blocksWithoutDescription.forEach(block => {
       if (block.type === 'list' && block.elements) {
         block.elements.forEach(el => {
-          if (ALLOWED_COMPACT_STATS.includes(el.name) || el.name.includes('Урон в голову') || el.name.includes('Урон по конечностям')) {
+          if (
+            ALLOWED_COMPACT_STATS.includes(el.name) ||
+            el.name.includes('Урон в голову') ||
+            el.name.includes('Урон по конечностям')
+          ) {
             els.push(el)
           }
         })
       }
     })
     return els
-  }, [displayBlocks])
+  }, [blocksWithoutDescription])
 
   const chartData = useMemo(() => {
-    return (historyData?.deals ?? []).filter(d => d.time).map(d => ({
-      t: new Date(d.time!).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
-      price: Math.round(d.unit),
-      amount: d.amount,
-    })).reverse()
-  }, [historyData?.deals])
+    return allDeals
+      .filter(d => d.time)
+      .map(d => ({
+        t: new Date(d.time!).toLocaleString('ru-RU', {
+          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+        }),
+        price: Math.round(d.unit),
+        amount: d.amount,
+      }))
+      .reverse()
+  }, [allDeals])
+
+  const sortedRecipes = useMemo(() => {
+    if (!recipeData) return []
+    return [...recipeData].sort((a, b) => {
+      const ap = a.profit ?? -Infinity
+      const bp = b.profit ?? -Infinity
+      return bp - ap
+    })
+  }, [recipeData])
+
+  // ─── Рендер ───
 
   return (
     <div className="space-y-6 pb-20">
-      <h1 className="text-2xl font-bold">📋 Список предметов</h1>
-
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-        <label className="block text-xs text-slate-400 mb-1">Выберите предмет</label>
-        <div className="flex gap-3">
+      {/* [1] Поиск и настройки */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+        <div className="flex gap-3 items-end">
           <div className="flex-1">
-            <ItemPicker value={itemId} onChange={(id) => { setItemId(id); loadItemData(id) }} />
+            <label className="block text-xs text-slate-400 mb-1">Предмет</label>
+            <ItemPicker value={itemId} onChange={onSelectItem} />
           </div>
-          <button onClick={() => loadItemData(itemId)} disabled={loading || !itemId}
-            className="rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-6 py-2 text-sm font-semibold">
-            Загрузить
+          <button
+            onClick={() => setSettingsOpen(v => !v)}
+            className="rounded-md border border-slate-700 hover:border-slate-500 px-3 py-2 text-sm text-slate-300 flex items-center gap-1 shrink-0"
+          >
+            Настройки {settingsOpen ? '▴' : '▾'}
+          </button>
+          <button
+            onClick={onRecalculate}
+            disabled={recipeLoading || !itemId}
+            className="rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 text-sm font-semibold shrink-0"
+          >
+            {recipeLoading ? 'Считаю…' : 'Рассчитать'}
           </button>
         </div>
+
+        {settingsOpen && (
+          <div className="space-y-3 pt-3 border-t border-slate-800">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <Num label="Комиссия (%)" value={settings.fee}
+                onChange={v => setSettings(s => ({ ...s, fee: v }))} step={0.5} />
+              <Num label="Макс. глубина" value={settings.maxDepth}
+                onChange={v => setSettings(s => ({ ...s, maxDepth: v }))} />
+              <Num label="Потоков" value={settings.workers}
+                onChange={v => setSettings(s => ({ ...s, workers: v }))} />
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <Check label="Рекурсивный крафт" checked={settings.recursive}
+                onChange={v => setSettings(s => ({ ...s, recursive: v }))} />
+              <Check label="Без истории (только лоты)" checked={settings.noHistory}
+                onChange={v => setSettings(s => ({ ...s, noHistory: v }))} />
+              <Check label="Игнорировать ошибки цен" checked={settings.ignoreMissing}
+                onChange={v => setSettings(s => ({ ...s, ignoreMissing: v }))} />
+              <Check label="Из локальной базы" checked={settings.useLocal}
+                onChange={v => setSettings(s => ({ ...s, useLocal: v }))} />
+            </div>
+          </div>
+        )}
       </div>
 
-      {loading && <LoadingSpinner label="Загрузка данных..." />}
-      {error && <ErrorBox error={error} />}
+      {/* Sticky «Пересчитать» */}
+      {hasPendingChanges && !recipeLoading && itemId && (
+        <div className="sticky top-4 z-20 flex justify-center">
+          <button
+            onClick={onRecalculate}
+            className="rounded-full bg-emerald-600 hover:bg-emerald-500 px-6 py-2.5 text-sm font-bold shadow-lg shadow-emerald-900/50 flex items-center gap-2 text-white"
+          >
+            🔄 Пересчитать
+            {excludedIds.length > 0 && (
+              <span className="text-emerald-200">(склад: {excludedIds.length})</span>
+            )}
+          </button>
+        </div>
+      )}
 
-      {!loading && historyData && itemDetails && (
-        <div className="space-y-4 animate-in fade-in duration-300">
-          
-          <ItemHeader 
+      {error && <ErrorBox error={error} />}
+      
+      {/* Лоадер быстрых данных (характеристики + история) */}
+      {itemId && quickLoading && (
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center">
+          <LoadingSpinner label="Загрузка характеристик и истории…" />
+        </div>
+      )}
+
+      {/* [2] Идентичность + характеристики */}
+      {itemDetails && historyData && (
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden">
+          <ItemHeader
             itemDetails={itemDetails}
-            historyData={historyData}
+            itemName={historyData.item_name}
+            description={description}
             hasUpgrade={hasUpgrade}
             maxLevel={maxLevel}
             variantLevel={variantLevel}
             setVariantLevel={setVariantLevel}
           />
+          <div className="border-t border-slate-800 p-4">
+            <ItemStats
+              displayBlocks={blocksWithoutDescription}
+              isArmorOrClothes={isArmorOrClothes}
+              isWeapon={isWeapon}
+              statView={statView}
+              setStatView={setStatView}
+              compactElements={compactElements}
+            />
+          </div>
+        </div>
+      )}
 
-          <ItemStats 
-            itemDetails={itemDetails}
-            displayBlocks={displayBlocks}
-            isArmorOrClothes={isArmorOrClothes}
-            statView={statView}
-            setStatView={setStatView}
-            compactElements={compactElements}
+      {/* [3] Расчёт крафта */}
+      {itemId && itemDetails && historyData && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+            Расчёт крафта
+          </h3>
+
+          {recipeLoading && (
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center">
+              <LoadingSpinner label="Анализ экономики. Обычно 30–90 сек." />
+              <div className="text-xs text-slate-500 mt-2">
+                Уменьшите «Макс. глубину» или выключите «Рекурсивный крафт», чтобы ускорить.
+              </div>
+            </div>
+          )}
+
+          {!recipeLoading && recipeError && <ErrorBox error={recipeError} />}
+
+          {!recipeLoading && !recipeError && recipeData && recipeData.length === 0 && (
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-sm text-slate-500">
+              Предмет невозможно получить через крафт или бартер.
+            </div>
+          )}
+
+          {!recipeLoading && !recipeError && sortedRecipes.length > 0 && (
+            <div className="space-y-3">
+              {sortedRecipes.map((r, i) => (
+                <AccordionRecipe
+                  key={`${r.bench}-${r.result_item_id}-${i}`}
+                  rank={i + 1}
+                  recipe={r}
+                  defaultExpanded={i === 0}
+                  excludedIds={excludedIds}
+                  onToggleExclude={toggleExclude}
+                />
+              ))}
+              {recipeElapsed != null && (
+                <div className="text-xs text-slate-500">Готово за {recipeElapsed.toFixed(1)} с</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* [4] История */}
+      {historyData && (
+        <ItemHistory
+          historyData={historyData}
+          deals={allDeals}
+          chartData={chartData}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          hasMore={hasMoreDeals}
+          loading={historyLoading}
+          onLoadMore={loadMoreDeals}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// Аккордеон одного RecipeCard
+// ─────────────────────────────────────────────
+
+function AccordionRecipe({
+  rank, recipe, defaultExpanded, excludedIds, onToggleExclude,
+}: {
+  rank: number
+  recipe: RecipeAnalysis
+  defaultExpanded: boolean
+  excludedIds: string[]
+  onToggleExclude: (id: string) => void
+}) {
+  const [open, setOpen] = useState(defaultExpanded)
+  const profitCls = (recipe.profit ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+  const marginCls = (recipe.margin_pct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-slate-800/30 transition"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-slate-500 font-mono text-sm shrink-0">#{rank}</span>
+          <div className="min-w-0">
+            <div className="font-semibold text-slate-100 truncate">
+              {recipe.result_name}{' '}
+              <span className="text-slate-500">×{recipe.result_amount}</span>
+            </div>
+            <div className="text-xs text-slate-500 truncate">
+              {recipe.kind === 'barter' ? (
+                <>
+                  <span className="px-1 py-0.5 rounded bg-violet-500/15 text-violet-300 mr-1">бартер</span>
+                  {recipe.subcategory}
+                </>
+              ) : (
+                <>{recipe.category} / {recipe.subcategory}</>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 shrink-0 text-sm">
+          {recipe.profit != null && (
+            <span className={`font-mono font-semibold ${profitCls}`}>
+              {fmtPrice(recipe.profit)}
+            </span>
+          )}
+          {recipe.margin_pct != null && (
+            <span className={`font-mono text-xs ${marginCls}`}>
+              {fmtPct(recipe.margin_pct)}
+            </span>
+          )}
+          <span className="text-slate-400 w-4 text-center">{open ? '▾' : '▸'}</span>
+        </div>
+      </button>
+      {open && (
+        <div className="px-4 pb-4">
+          <RecipeCard
+            a={recipe}
+            excludedIds={excludedIds}
+            onToggleExclude={onToggleExclude}
+            bare
+            hideHeader
           />
-
-          <ItemRecipe recipeData={recipeData} />
-
-          <ItemHistory 
-            historyData={historyData}
-            chartData={chartData}
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            page={page}
-            onPageChange={(p) => loadItemData(itemId, p)}
-          />
-
         </div>
       )}
     </div>
   )
 }
 
-// ────────────────────────────────────────────────────────
-// Вспомогательные компоненты
-// ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Header: иконка, имя, описание, +/- прокачка
+// ─────────────────────────────────────────────
 
-function ItemHeader({ 
-  itemDetails, historyData, hasUpgrade, maxLevel, variantLevel, setVariantLevel 
-}: { 
-  itemDetails: ItemDetails, historyData: HistoryResp, hasUpgrade: boolean, 
-  maxLevel: number, variantLevel: number, setVariantLevel: React.Dispatch<React.SetStateAction<number>> 
+function ItemHeader({
+  itemDetails, itemName, description, hasUpgrade, maxLevel, variantLevel, setVariantLevel,
+}: {
+  itemDetails: ItemDetails
+  itemName: string
+  description: string | null
+  hasUpgrade: boolean
+  maxLevel: number
+  variantLevel: number
+  setVariantLevel: React.Dispatch<React.SetStateAction<number>>
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <div className="p-4">
       <div className="flex gap-4 items-start">
         {itemDetails.icon_url && (
           <div className="shrink-0">
-            <img src={itemDetails.icon_url} alt={historyData.item_name}
-              className="w-20 h-20 object-contain rounded border border-slate-700 bg-slate-900/60 p-1"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            <img
+              src={itemDetails.icon_url}
+              alt={itemName}
+              className="w-[120px] h-[120px] object-contain rounded border border-slate-700 bg-slate-900/60 p-1"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+            />
           </div>
         )}
 
         <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-bold text-slate-100 mb-2 truncate"
-              style={{ color: getRankColor(itemDetails.color) }}>
-            {historyData.item_name}
+          <h2
+            className="text-xl font-bold text-slate-100 mb-1 truncate"
+            style={{ color: getRankColor(itemDetails.color) }}
+          >
+            {itemName}
           </h2>
-          <div className="flex gap-2 text-xs">
-            <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400">
-              Ранг: {itemDetails.color.replace('RANK_', '').toLowerCase()}
-            </span>
-          </div>
+          {description && (
+            <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap">
+              {description}
+            </p>
+          )}
         </div>
 
         {hasUpgrade && (
@@ -230,35 +591,46 @@ function ItemHeader({
   )
 }
 
-function ItemStats({ 
-  itemDetails, displayBlocks, isArmorOrClothes, statView, setStatView, compactElements 
-}: { 
-  itemDetails: ItemDetails, displayBlocks: InfoBlock[], isArmorOrClothes: boolean, 
-  statView: 'compact' | 'detailed', setStatView: (v: 'compact' | 'detailed') => void, 
-  compactElements: InfoBlockElement[] 
+// ─────────────────────────────────────────────
+// Stats: компакт / подробно
+// ─────────────────────────────────────────────
+
+function ItemStats({
+  displayBlocks, isArmorOrClothes, isWeapon, statView, setStatView, compactElements,
+}: {
+  displayBlocks: InfoBlock[]
+  isArmorOrClothes: boolean
+  isWeapon: boolean
+  statView: 'compact' | 'detailed'
+  setStatView: (v: 'compact' | 'detailed') => void
+  compactElements: InfoBlockElement[]
 }) {
+  const effectiveView: 'compact' | 'detailed' = isWeapon ? statView : 'detailed'
+
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-slate-200 flex items-center gap-2">
           <span className="text-slate-400">📄</span> Характеристики
         </h3>
-        <div className="flex bg-slate-900 rounded-md p-1 border border-slate-800">
-          <button onClick={() => setStatView('compact')}
-            className={`px-3 py-1 text-xs rounded transition ${statView === 'compact' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>
-            Компактный
-          </button>
-          <button onClick={() => setStatView('detailed')}
-            className={`px-3 py-1 text-xs rounded transition ${statView === 'detailed' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>
-            Подробный
-          </button>
-        </div>
+        {isWeapon && (
+          <div className="flex bg-slate-900 rounded-md p-1 border border-slate-800">
+            <button onClick={() => setStatView('compact')}
+              className={`px-3 py-1 text-xs rounded transition ${statView === 'compact' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>
+              Компактный
+            </button>
+            <button onClick={() => setStatView('detailed')}
+              className={`px-3 py-1 text-xs rounded transition ${statView === 'detailed' ? 'bg-slate-700 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>
+              Подробный
+            </button>
+          </div>
+        )}
       </div>
 
-      {statView === 'compact' ? (
+      {effectiveView === 'compact' ? (
         <div className="flex flex-col">
           {compactElements.map((el, i) => (
-            <div key={i} className="flex justify-between items-center text-sm px-2 py-1.5 hover:bg-slate-800/30 rounded">
+            <div key={i} className="flex justify-between items-center text-sm px-2 py-1 hover:bg-slate-800/30 rounded">
               <span style={{ color: el.nameColor ? `#${el.nameColor}` : '#94a3b8' }}>{el.name}</span>
               <span className="font-semibold font-mono text-right" style={{ color: el.valueColor ? `#${el.valueColor}` : '#fff' }}>{el.value}</span>
             </div>
@@ -270,13 +642,13 @@ function ItemStats({
       ) : (
         <div className="space-y-4">
           {displayBlocks.map((block, idx) => {
-            const hasTitle = Boolean(block.title);
+            const hasTitle = Boolean(block.title)
             const content = (
               <>
                 {block.type === 'list' && block.elements && (
-                  <div className="flex flex-col gap-1 mt-2">
+                  <div className="flex flex-col gap-0.5 mt-1">
                     {block.elements.map((el, i) => (
-                      <div key={i} className="flex justify-between text-sm px-2 py-1 hover:bg-slate-800/30 rounded">
+                      <div key={i} className="flex justify-between text-sm px-2 py-0.5 hover:bg-slate-800/30 rounded">
                         <span style={{ color: el.nameColor ? `#${el.nameColor}` : '#94a3b8' }}>{el.name}</span>
                         <span className="font-semibold font-mono" style={{ color: el.valueColor ? `#${el.valueColor}` : '#fff' }}>{el.value}</span>
                       </div>
@@ -289,7 +661,7 @@ function ItemStats({
                   </p>
                 )}
               </>
-            );
+            )
 
             if (hasTitle && !isArmorOrClothes) {
               return (
@@ -300,9 +672,8 @@ function ItemStats({
                   </summary>
                   <div className="pl-4 mt-2 border-l border-slate-800">{content}</div>
                 </details>
-              );
+              )
             }
-
             return (
               <div key={idx} className="mt-4">
                 {hasTitle && (
@@ -310,45 +681,29 @@ function ItemStats({
                 )}
                 {content}
               </div>
-            );
+            )
           })}
         </div>
       )}
-    </div>
+    </>
   )
 }
 
-function ItemRecipe({ recipeData }: { recipeData: RecipeAnalysis[] | null }) {
-  if (!recipeData || recipeData.length === 0) return null
-  return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-      <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Рецепт</h3>
-      <div className="space-y-6">
-        {recipeData.map((r, i) => (
-          <div key={i} className="border-l-2 border-emerald-500/30 pl-4">
-            <div className="text-xs text-slate-400 mb-3">
-              Верстак: <span className="text-slate-300">{r.bench}</span> • Выход: <span className="text-slate-300">{r.result_amount} шт.</span>
-            </div>
-            <div className="space-y-1.5">
-              {r.ingredients.map(ing => (
-                <div key={ing.item_id} className="flex items-center justify-between text-sm text-slate-300 max-w-md hover:bg-slate-800/50 px-2 py-1 rounded">
-                  <span>{ing.name}</span>
-                  <span className="font-mono text-slate-400">×{ing.amount}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+// ─────────────────────────────────────────────
+// История: график / список + «Показать ещё»
+// ─────────────────────────────────────────────
 
-function ItemHistory({ 
-  historyData, chartData, viewMode, setViewMode, page, onPageChange 
-}: { 
-  historyData: HistoryResp, chartData: any[], viewMode: 'chart' | 'list', 
-  setViewMode: (m: 'chart' | 'list') => void, page: number, onPageChange: (p: number) => void 
+function ItemHistory({
+  historyData, deals, chartData, viewMode, setViewMode, hasMore, loading, onLoadMore,
+}: {
+  historyData: HistoryResp
+  deals: Deal[]
+  chartData: any[]
+  viewMode: 'chart' | 'list'
+  setViewMode: (m: 'chart' | 'list') => void
+  hasMore: boolean
+  loading: boolean
+  onLoadMore: () => void
 }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
@@ -367,7 +722,9 @@ function ItemHistory({
       </div>
 
       {!historyData.stats.n_deals ? (
-        <div className="text-sm text-slate-500">{historyData.stats.empty_reason ?? 'Нет данных о сделках'}</div>
+        <div className="text-sm text-slate-500">
+          {historyData.stats.empty_reason ?? 'Нет данных о сделках'}
+        </div>
       ) : viewMode === 'chart' ? (
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
@@ -401,9 +758,11 @@ function ItemHistory({
                 </tr>
               </thead>
               <tbody>
-                {historyData.deals.map((d, i) => (
+                {deals.map((d, i) => (
                   <tr key={i} className="border-t border-slate-800 hover:bg-slate-900/50">
-                    <td className="px-3 py-1.5 text-slate-300">{d.time ? new Date(d.time).toLocaleString('ru-RU') : '—'}</td>
+                    <td className="px-3 py-1.5 text-slate-300">
+                      {d.time ? new Date(d.time).toLocaleString('ru-RU') : '—'}
+                    </td>
                     <td className="px-3 py-1.5 text-right font-mono">{fmtPrice(d.unit)}</td>
                     <td className="px-3 py-1.5 text-right">{d.amount}</td>
                     <td className="px-3 py-1.5 text-right font-mono">{fmtPrice(d.price)}</td>
@@ -412,11 +771,15 @@ function ItemHistory({
               </tbody>
             </table>
           </div>
-          {historyData.total_pages > 1 && (
-            <div className="flex items-center justify-between text-sm">
-              <button disabled={page === 0} onClick={() => onPageChange(page - 1)} className="rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 px-3 py-1.5">← Назад</button>
-              <span className="text-slate-400">Стр. {page + 1} из {historyData.total_pages}</span>
-              <button disabled={page >= historyData.total_pages - 1} onClick={() => onPageChange(page + 1)} className="rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 px-3 py-1.5">Вперёд →</button>
+          {hasMore && (
+            <div className="flex justify-center">
+              <button
+                onClick={onLoadMore}
+                disabled={loading}
+                className="rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 px-4 py-1.5 text-sm"
+              >
+                {loading ? 'Загрузка…' : 'Показать ещё'}
+              </button>
             </div>
           )}
         </div>
@@ -424,6 +787,10 @@ function ItemHistory({
     </div>
   )
 }
+
+// ─────────────────────────────────────────────
+// Утилиты
+// ─────────────────────────────────────────────
 
 function CustomTooltip({ active, payload, label }: any) {
   if (active && payload && payload.length) {
@@ -445,5 +812,28 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="text-xs text-slate-500">{label}</div>
       <div className="font-semibold font-mono">{value}</div>
     </div>
+  )
+}
+
+function Num({ label, value, onChange, step = 1 }:
+  { label: string; value: number; onChange: (n: number) => void; step?: number }) {
+  return (
+    <div>
+      <label className="block text-xs text-slate-400 mb-1">{label}</label>
+      <input type="number" step={step} value={value}
+        onChange={e => onChange(parseFloat(e.target.value) || 0)}
+        className="w-full rounded-md bg-slate-900 border border-slate-700 px-2 py-1.5 text-sm" />
+    </div>
+  )
+}
+
+function Check({ label, checked, onChange }:
+  { label: string; checked: boolean; onChange: (b: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)}
+        className="h-4 w-4 accent-emerald-500" />
+      {label}
+    </label>
   )
 }

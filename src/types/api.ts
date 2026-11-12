@@ -76,6 +76,7 @@ export interface RecipeAnalysis {
   category: string
   subcategory: string
   bench: string
+  kind?: 'craft' | 'barter'
   requirements: {
     perks?: Record<string, number>
     features?: string[]
@@ -158,14 +159,6 @@ export interface Item {
 export interface Category {
   id: string
   name: string
-}
-
-export interface ItemDetails {
-  description: string | null
-  color: string
-  status: string
-  stats: { name: string; value: string }[]
-  icon_url: string | null
 }
 
 export interface InfoBlockElement {

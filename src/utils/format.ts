@@ -15,6 +15,7 @@ export function sourceTag(source: string): { label: string; cls: string } {
     case 'history':
     case 'lots': return { label: 'рынок', cls: 'bg-sky-500/15 text-sky-300' }
     case 'excluded': return { label: 'склад', cls: 'bg-amber-500/15 text-amber-300' }
+    case 'barter': return { label: '', cls: '' }
     default: return { label: 'нет', cls: 'bg-rose-500/15 text-rose-300' }
   }
 }

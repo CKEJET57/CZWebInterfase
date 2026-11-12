@@ -18,9 +18,8 @@ function IngredientRow({ ing, depth }: { ing: Ingredient; depth: number }) {
 
   return (
     <div>
-      <div className="flex items-center gap-2 py-0.5 hover:bg-slate-900/50 rounded px-2" style={{ paddingLeft: pad }}>
-        {/* <span className="w-12 text-slate-500 truncate text-xs">{ing.item_id}</span> */}
-        <span className="w-44 truncate">{ing.name}</span>
+      <div className="flex items-start gap-2 py-0.5 hover:bg-slate-900/50 rounded px-2" style={{ paddingLeft: pad }}>
+        <span className="flex-1 min-w-0 break-words text-slate-300" title={ing.name}>{ing.name}</span>
         <span className="w-12 text-right text-slate-400">×{ing.amount}</span>
         <span className={`px-1.5 py-0.5 rounded text-xs ${tag.cls}`}>{tag.label}</span>
         <span className="w-24 text-right text-slate-400">{fmtPrice(ing.unit_price)}</span>
@@ -48,9 +47,8 @@ function CostNodeRow({ node, depth }: { node: CostNode; depth: number }) {
 
   return (
     <div>
-      <div className="flex items-center gap-2 py-0.5 hover:bg-slate-900/50 rounded px-2" style={{ paddingLeft: pad }}>
-        {/* <span className="w-12 text-slate-500 truncate text-xs">{node.item_id}</span> */}
-        <span className="w-44 truncate text-slate-300">{node.name || node.item_id}</span>
+      <div className="flex items-start gap-2 py-0.5 hover:bg-slate-900/50 rounded px-2" style={{ paddingLeft: pad }}>
+        <span className="flex-1 min-w-0 break-words text-slate-300" title={node.name || node.item_id}>{node.name || node.item_id}</span>
         <span className="w-12 text-right text-slate-400">×{node.amount}</span>
         <span className={`px-1.5 py-0.5 rounded text-xs ${tag.cls}`}>{tag.label}</span>
         <span className="w-24 text-right text-slate-400">{fmtPrice(node.unit_price)}</span>
