@@ -6,12 +6,13 @@ import {
 import { api } from '../api/client'
 import type {
   HistoryResp, RecipeAnalysis, ItemDetails, ItemVariant,
-  InfoBlock, InfoBlockElement, Deal,
+  InfoBlock, InfoBlockElement, Deal, MarketAnalysisResp,
 } from '../types/api'
 import { ItemPicker } from '../components/ItemPicker'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { ErrorBox } from '../components/ErrorBox'
 import { RecipeCard } from '../components/RecipeCard'
+import { MarketAnalysisPanel } from '../components/MarketAnalysisPanel'
 import { fmtPrice, fmtPct } from '../utils/format'
 import { getRankColor } from '../utils/rankColors'
 
@@ -87,6 +88,11 @@ export function ItemPage() {
   const [recipeLoading, setRecipeLoading] = useState(false)
   const [recipeError, setRecipeError] = useState<string | null>(null)
   const [recipeElapsed, setRecipeElapsed] = useState<number | null>(null)
+
+  // Рыночная аналитика
+  const [marketData, setMarketData] = useState<MarketAnalysisResp | null>(null)
+  const [marketDays, setMarketDays] = useState(7)
+  const [marketLoading, setMarketLoading] = useState(false)
 
   const [excludedIds, setExcludedIds] = useState<string[]>([])
   const [lastRunExcludedIds, setLastRunExcludedIds] = useState<string[]>([])
@@ -166,6 +172,19 @@ export function ItemPage() {
     }
   }
 
+  async function loadMarketData(id: string, days: number) {
+    setMarketLoading(true)
+    try {
+      const r = await api.marketAnalysis(id, days)
+      console.log('[market-analysis] OK', r)
+      setMarketData(r)
+    } catch {
+      setMarketData(null)
+    } finally {
+      setMarketLoading(false)
+    }
+  }
+
   // ─── Обработчики ───
 
   function onSelectItem(id: string) {
@@ -173,14 +192,21 @@ export function ItemPage() {
     setExcludedIds([])
     setLastRunExcludedIds([])
     setRecipeData(null); setRecipeError(null); setRecipeElapsed(null)
+    setMarketData(null)
     setStatView('compact')
     loadQuickData(id)
     runRecipe(id, settings, [])
+    loadMarketData(id, marketDays)
   }
 
   function onRecalculate() {
     if (!itemId) return
     runRecipe(itemId, settings, excludedIds)
+  }
+
+  function onMarketDaysChange(d: number) {
+    setMarketDays(d)
+    if (itemId) loadMarketData(itemId, d)
   }
 
   function toggleExclude(id: string) {
@@ -423,6 +449,16 @@ export function ItemPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* [3.5] Рыночная аналитика */}
+      {itemId && (
+        <MarketAnalysisPanel
+          data={marketData}
+          days={marketDays}
+          onDaysChange={onMarketDaysChange}
+          loading={marketLoading}
+        />
       )}
 
       {/* [4] История */}

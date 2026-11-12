@@ -45,7 +45,7 @@ export interface CostNode {
   name?: string
   amount: number
   cost: number | null
-  source: 'market' | 'craft' | 'excluded' | 'none'
+  source: 'market' | 'craft' | 'excluded' | 'none' | 'barter'
   unit_price: number | null
   market_cost: number | null
   craft_cost: number | null
@@ -195,4 +195,49 @@ export interface ItemVariant {
 export interface ItemVariantsResp {
   available: boolean
   variants: ItemVariant[]
+}
+
+// ─── Рыночная аналитика ───
+export interface MarketLiquidity {
+  deals: number
+  units: number
+  rub: number
+  deals_per_day: number
+  units_per_day: number
+  rub_per_day: number
+  active_amount: number
+  active_lots: number
+  min_unit: number
+  median_sold: number
+  depth_amount: number
+  days_to_sell: number | null
+  turnover: number | null
+  spread_pct: number | null
+  level: string
+  level_code: 'HIGH' | 'MEDIUM' | 'LOW'
+}
+
+export interface BestTimeBucket {
+  hour?: number
+  weekday?: number
+  date?: string
+  median: number
+  n: number
+  dev_pct: number | null
+  action?: 'buy' | 'sell' | null
+}
+
+export interface MarketBestTime {
+  by_hour: BestTimeBucket[]
+  by_weekday: BestTimeBucket[]
+  by_day: BestTimeBucket[]
+  overall_median: number
+}
+
+export interface MarketAnalysisResp {
+  item_id: string
+  days: number
+  liquidity: MarketLiquidity | null
+  best_time: MarketBestTime | null
+  warnings: string[]
 }

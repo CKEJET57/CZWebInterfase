@@ -1,6 +1,7 @@
 import type {
   BatchReq, BatchResp, Category, HistoryReq, HistoryResp,
-  Item, ItemDetails, ItemVariantsResp, RecipeReq, RecipeResp,
+  Item, ItemDetails, ItemVariantsResp, MarketAnalysisResp,
+  RecipeReq, RecipeResp,
 } from '../types/api'
 
 const RAW = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
@@ -70,6 +71,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  
+  marketAnalysis: (itemId: string, days = 7) =>
+    request<MarketAnalysisResp>(
+      `/market-analysis/${encodeURIComponent(itemId)}?days=${days}`,
+    ),
 
   character: (body: { name: string; region?: string }) =>
     request<Record<string, unknown>>('/character', {
