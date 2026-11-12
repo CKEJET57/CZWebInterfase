@@ -4,7 +4,9 @@ import type {
   RecipeReq, RecipeResp,
 } from '../types/api'
 
-const RAW = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
+// Единый origin для Codespaces и production за Nginx.
+// Локальная разработка также использует Vite proxy на localhost:8000.
+const RAW = import.meta.env.VITE_API_URL || '/api'
 const BASE = RAW.replace(/\/+$/, '')
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -17,7 +19,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch (e) {
     throw new Error(
       `Не удалось связаться с API по адресу ${BASE}. ` +
-      `Проверьте, что бэкенд запущен и CORS разрешён. ` +
+      `Проверьте, что backend запущен и доступен. ` +
       `(${(e as Error).message})`
     )
   }
@@ -71,7 +73,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  
+
   marketAnalysis: (itemId: string, days = 7) =>
     request<MarketAnalysisResp>(
       `/market-analysis/${encodeURIComponent(itemId)}?days=${days}`,
