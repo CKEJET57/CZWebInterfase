@@ -29,6 +29,10 @@ async function invokeDesktop<T>(command: string, args?: Record<string, unknown>)
   return await invoke(command, args) as T
 }
 
+async function desktopRequest<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  return invokeDesktop<T>('desktop_request', { action, payload })
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let r: Response
   try {
@@ -59,46 +63,58 @@ export const api = {
   baseUrl: BASE,
   desktop: isDesktop(),
 
-  health: () => request<{ ok: boolean }>('/health'),
+  health: () => isDesktop()
+    ? desktopRequest<{ ok: boolean }>('health')
+    : request<{ ok: boolean }>('/health'),
 
   items: (q?: string, craftable?: boolean) => {
     const params = new URLSearchParams()
     if (q) params.append('q', q)
     if (craftable) params.append('craftable', 'true')
     const qs = params.toString()
-    return request<Item[]>(`/items${qs ? `?${qs}` : ''}`)
+    return isDesktop()
+      ? desktopRequest<Item[]>('items', { q, craftable })
+      : request<Item[]>(`/items${qs ? `?${qs}` : ''}`)
   },
 
-  categories: () => request<Category[]>('/categories'),
+  categories: () => isDesktop()
+    ? desktopRequest<Category[]>('categories')
+    : request<Category[]>('/categories'),
 
-  itemDetails: (itemId: string) =>
-    request<ItemDetails>(`/item-details/${encodeURIComponent(itemId)}`),
+  itemDetails: (itemId: string) => isDesktop()
+    ? desktopRequest<ItemDetails>('item_details', { item_id: itemId })
+    : request<ItemDetails>(`/item-details/${encodeURIComponent(itemId)}`),
 
-  itemVariants: (itemId: string) =>
-    request<ItemVariantsResp>(`/item-details/${encodeURIComponent(itemId)}/variants`),
+  itemVariants: (itemId: string) => isDesktop()
+    ? desktopRequest<ItemVariantsResp>('item_variants', { item_id: itemId })
+    : request<ItemVariantsResp>(`/item-details/${encodeURIComponent(itemId)}/variants`),
 
-  recipe: (body: RecipeReq) =>
-    request<RecipeResp>('/recipe', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
+  recipe: (body: RecipeReq) => isDesktop()
+    ? desktopRequest<RecipeResp>('recipe', body as unknown as Record<string, unknown>)
+    : request<RecipeResp>('/recipe', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
 
-  batch: (body: BatchReq) =>
-    request<BatchResp>('/batch', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
+  batch: (body: BatchReq) => isDesktop()
+    ? desktopRequest<BatchResp>('batch', body as unknown as Record<string, unknown>)
+    : request<BatchResp>('/batch', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
 
-  history: (body: HistoryReq) =>
-    request<HistoryResp>('/history', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
+  history: (body: HistoryReq) => isDesktop()
+    ? desktopRequest<HistoryResp>('history', body as unknown as Record<string, unknown>)
+    : request<HistoryResp>('/history', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
 
-  marketAnalysis: (itemId: string, days = 7) =>
-    request<MarketAnalysisResp>(
-      `/market-analysis/${encodeURIComponent(itemId)}?days=${days}`,
-    ),
+  marketAnalysis: (itemId: string, days = 7) => isDesktop()
+    ? desktopRequest<MarketAnalysisResp>('market_analysis', { item_id: itemId, days })
+    : request<MarketAnalysisResp>(
+        `/market-analysis/${encodeURIComponent(itemId)}?days=${days}`,
+      ),
 
   character: (body: { name: string; region?: string }) =>
     isDesktop()
