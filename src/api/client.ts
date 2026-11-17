@@ -57,6 +57,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   baseUrl: BASE,
+  desktop: isDesktop(),
 
   health: () => request<{ ok: boolean }>('/health'),
 
