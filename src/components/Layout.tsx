@@ -20,7 +20,6 @@ export function Layout() {
               <NavLink
                 key={n.to}
                 to={n.to}
-                end={n.end}
                 className={({ isActive }) =>
                   `px-3 py-1.5 rounded-md transition ${
                     isActive
