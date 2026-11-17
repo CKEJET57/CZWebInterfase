@@ -17,7 +17,7 @@ declare global {
 }
 
 const RAW = import.meta.env.VITE_API_URL || '/api'
-const BASE = RAW.replace(/\\/+$/, '')
+const BASE = RAW.endsWith('/') ? RAW.slice(0, -1) : RAW
 
 function isDesktop(): boolean {
   return typeof window !== 'undefined' && typeof window.__TAURI__?.core?.invoke === 'function'
