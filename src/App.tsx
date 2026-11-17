@@ -9,11 +9,12 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route index element={<Navigate to="/character" replace />} />
+        <Route index element={<HomePage />} />
         <Route path="recipe" element={<Navigate to="/items" replace />} />
         <Route path="batch" element={<BatchPage />} />
         <Route path="items" element={<ItemPage />} />
         <Route path="character" element={<CharacterPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   )
