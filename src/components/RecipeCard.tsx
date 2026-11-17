@@ -74,6 +74,7 @@ export function RecipeCard({
           </div>
         </div>
       )}
+      
 
       <div className="border-t border-slate-800 pt-2">
         <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">Ингредиенты (дерево)</div>
