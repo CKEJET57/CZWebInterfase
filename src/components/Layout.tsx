@@ -2,9 +2,8 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 import { api } from '../api/client'
 
 const items = [
-  { to: '/recipe', label: 'Рецепт' },
   { to: '/batch', label: 'Топ по категориям' },
-  { to: '/items', label: 'Список предметов' },
+  { to: '/items', label: 'Предметы и рецепты' },
   { to: '/character', label: 'Персонаж' },
 ]
 
