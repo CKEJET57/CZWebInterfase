@@ -4,10 +4,30 @@ import type {
   RecipeReq, RecipeResp,
 } from '../types/api'
 
-// Единый origin для Codespaces и production за Nginx.
-// Локальная разработка также использует Vite proxy на localhost:8000.
+// Tauri предоставляет глобальный API только в desktop-сборке.
+// В web-режиме запросы продолжают идти через HTTP API.
+declare global {
+  interface Window {
+    __TAURI__?: {
+      core?: {
+        invoke?: (command: string, args?: Record<string, unknown>) => Promise<unknown>
+      }
+    }
+  }
+}
+
 const RAW = import.meta.env.VITE_API_URL || '/api'
-const BASE = RAW.replace(/\/+$/, '')
+const BASE = RAW.replace(/\\/+$/, '')
+
+function isDesktop(): boolean {
+  return typeof window !== 'undefined' && typeof window.__TAURI__?.core?.invoke === 'function'
+}
+
+async function invokeDesktop<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  const invoke = window.__TAURI__?.core?.invoke
+  if (!invoke) throw new Error('Desktop IPC недоступен. Запустите приложение через Tauri.')
+  return await invoke(command, args) as T
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let r: Response
@@ -80,8 +100,15 @@ export const api = {
     ),
 
   character: (body: { name: string; region?: string }) =>
-    request<Record<string, unknown>>('/character', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
+    isDesktop()
+      ? invokeDesktop<Record<string, unknown>>('search_character', body)
+      : request<Record<string, unknown>>('/character', {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+
+  statsMetadata: () =>
+    isDesktop()
+      ? invokeDesktop<Record<string, unknown>[]>('get_stats_metadata')
+      : request<Record<string, unknown>[]>('/stats-metadata'),
 }
