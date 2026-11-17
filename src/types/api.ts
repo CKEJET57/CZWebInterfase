@@ -98,6 +98,8 @@ export interface RecipeAnalysis {
   excluded_summary: Record<string, number>
   required_total: Record<string, { amount: number; source: string; name?: string }>
   full_tree: Record<string, { amount: number; source: string; name?: string }>
+  total_energy: number
+  total_energy_cost: number
 }
 
 export interface RecipeResp {

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { RecipeAnalysis } from '../types/api'
 import { fmtPrice, fmtPct, sourceTag } from '../utils/format'
 import { getPerkLabel, getFeatureLabel } from '../utils/recipeLabels'
@@ -6,18 +7,27 @@ import { RecipeTree } from './RecipeTree'
 interface RecipeCardProps {
   a: RecipeAnalysis
   excludedIds?: string[]
+  pendingExcludedIds?: string[]
   onToggleExclude?: (id: string) => void
   bare?: boolean
   hideHeader?: boolean
 }
 
+function formatEnergy(v: number): string {
+  if (Number.isInteger(v)) return v.toFixed(0)
+  return v.toFixed(1)
+}
+
 export function RecipeCard({
   a,
   excludedIds = [],
+  pendingExcludedIds = [],
   onToggleExclude,
   bare = false,
   hideHeader = false,
 }: RecipeCardProps) {
+  const [basicsOpen, setBasicsOpen] = useState(false)
+
   const perks = a.requirements?.perks ?? {}
   const features = a.requirements?.features ?? []
 
@@ -26,6 +36,13 @@ export function RecipeCard({
     id,
     ...data,
   })).sort((x, y) => (x.name || x.id).localeCompare(y.name || y.id))
+
+  // Энергия приходит с бэкенда готовой суммой по всему дереву:
+  // топ-рецепт + все реально крафтящиеся ингредиенты (рекурсивно).
+  // Fallback на старые поля, если бэкенд ещё не обновлён.
+  const totalEnergy: number = (a as any).total_energy ?? a.energy ?? 0
+  const totalEnergyCost: number = (a as any).total_energy_cost ?? a.energy_cost ?? 0
+  const showEnergy = a.kind !== 'barter' && totalEnergy > 0
 
   const wrapperCls = bare
     ? 'space-y-3'
@@ -74,11 +91,20 @@ export function RecipeCard({
           </div>
         </div>
       )}
-      
 
       <div className="border-t border-slate-800 pt-2">
         <div className="text-xs uppercase tracking-wider text-slate-500 mb-1">Ингредиенты (дерево)</div>
-        <RecipeTree ingredients={a.ingredients} />
+        <RecipeTree
+          ingredients={a.ingredients}
+          excludedIds={excludedIds}
+          pendingExcludedIds={pendingExcludedIds}
+          onToggleExclude={onToggleExclude}
+        />
+        {showEnergy && (
+          <div className="mt-3 pt-2 border-t border-slate-800/60 text-xs text-amber-400 font-mono">
+            Энергия: {formatEnergy(totalEnergy)} ед. ({fmtPrice(totalEnergyCost)})
+          </div>
+        )}
       </div>
 
       {a.kind !== 'barter' && (
@@ -90,26 +116,35 @@ export function RecipeCard({
 
       {fullTreeList.length > 0 && (
         <div className="pt-4 border-t border-slate-800">
-          <div className="text-sm font-semibold text-emerald-300 flex items-center gap-2 mb-2">
+          <button
+            type="button"
+            onClick={() => setBasicsOpen(v => !v)}
+            className="w-full flex items-center gap-2 text-sm font-semibold text-emerald-300 hover:text-emerald-200 select-none"
+          >
+            <span className="text-slate-400 w-4 text-center">{basicsOpen ? '▾' : '▸'}</span>
             🌳 Базовые ресурсы
-            {onToggleExclude && (
-              <span className="text-xs font-normal text-slate-500">(кликните, чтобы добавить/убрать со склада)</span>
-            )}
-          </div>
-          <div className="max-h-60 overflow-y-auto rounded border border-slate-800 bg-slate-900/60 divide-y divide-slate-800/50 text-sm">
-            {fullTreeList.map(i => {
-              const isExcluded = excludedIds.includes(i.id)
-              return (
-                <ResourceRow
-                  key={i.id}
-                  item={i}
-                  isExcluded={isExcluded}
-                  onToggle={onToggleExclude ? () => onToggleExclude(i.id) : undefined}
-                  hideTag={a.kind === 'barter'}
-                />
-              )
-            })}
-          </div>
+            <span className="text-xs font-normal text-slate-500">
+              ({fullTreeList.length})
+            </span>
+          </button>
+          {basicsOpen && (
+            <div className="mt-2 max-h-60 overflow-y-auto rounded border border-slate-800 bg-slate-900/60 divide-y divide-slate-800/50 text-sm">
+              {fullTreeList.map(i => {
+                const isExcluded = excludedIds.includes(i.id)
+                const isPending = pendingExcludedIds.includes(i.id)
+                return (
+                  <ResourceRow
+                    key={i.id}
+                    item={i}
+                    isExcluded={isExcluded}
+                    isPending={isPending}
+                    onToggle={onToggleExclude ? () => onToggleExclude(i.id) : undefined}
+                    hideTag={a.kind === 'barter'}
+                  />
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -222,10 +257,11 @@ function EconomyTable({ analysis }: { analysis: RecipeAnalysis }) {
 }
 
 function ResourceRow({
-  item, isExcluded, onToggle, hideTag = false,
+  item, isExcluded, isPending, onToggle, hideTag = false,
 }: {
   item: { id: string; amount: number; source: string; name?: string }
   isExcluded: boolean
+  isPending: boolean
   onToggle?: () => void
   hideTag?: boolean
 }) {
@@ -237,7 +273,7 @@ function ResourceRow({
       className={`flex items-center gap-3 px-3 py-1.5 transition select-none ${
         onToggle ? 'cursor-pointer' : 'cursor-default'
       } ${
-        isExcluded
+        isPending
           ? 'bg-slate-800/80 ring-1 ring-inset ring-amber-500/30'
           : 'hover:bg-slate-800/50'
       }`}

@@ -223,6 +223,20 @@ export function ItemPage() {
     excludedIds.some(id => !lastRunExcludedIds.includes(id))
   const hasPendingChanges = (settingsChanged || exclusionsChanged) && Boolean(lastRunSettings)
 
+  // «Ожидающие» исключения — те, что ещё не применены в последнем расчёте.
+  // Именно их и подсвечиваем янтарным кольцом; после пересчёта кольцо гаснет,
+  // а тег «склад» и общая подсветка фона остаются.
+  const pendingExcludedIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const id of excludedIds) {
+      if (!lastRunExcludedIds.includes(id)) set.add(id)
+    }
+    for (const id of lastRunExcludedIds) {
+      if (!excludedIds.includes(id)) set.add(id)
+    }
+    return Array.from(set)
+  }, [excludedIds, lastRunExcludedIds])
+
   const hasUpgrade = Boolean(variants && variants.length > 0)
   const maxLevel = variants?.length ?? 0
 
@@ -374,7 +388,7 @@ export function ItemPage() {
       )}
 
       {error && <ErrorBox error={error} />}
-      
+
       {/* Лоадер быстрых данных (характеристики + история) */}
       {itemId && quickLoading && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center">
@@ -440,6 +454,7 @@ export function ItemPage() {
                   recipe={r}
                   defaultExpanded={i === 0}
                   excludedIds={excludedIds}
+                  pendingExcludedIds={pendingExcludedIds}
                   onToggleExclude={toggleExclude}
                 />
               ))}
@@ -483,12 +498,13 @@ export function ItemPage() {
 // ─────────────────────────────────────────────
 
 function AccordionRecipe({
-  rank, recipe, defaultExpanded, excludedIds, onToggleExclude,
+  rank, recipe, defaultExpanded, excludedIds, pendingExcludedIds, onToggleExclude,
 }: {
   rank: number
   recipe: RecipeAnalysis
   defaultExpanded: boolean
   excludedIds: string[]
+  pendingExcludedIds: string[]
   onToggleExclude: (id: string) => void
 }) {
   const [open, setOpen] = useState(defaultExpanded)
@@ -539,6 +555,7 @@ function AccordionRecipe({
           <RecipeCard
             a={recipe}
             excludedIds={excludedIds}
+            pendingExcludedIds={pendingExcludedIds}
             onToggleExclude={onToggleExclude}
             bare
             hideHeader
