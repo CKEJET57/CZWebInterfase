@@ -9,7 +9,7 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route index element={<HomePage />} />
+        <Route index element={<Navigate to="/character" replace />} />
         <Route path="recipe" element={<Navigate to="/items" replace />} />
         <Route path="batch" element={<BatchPage />} />
         <Route path="items" element={<ItemPage />} />
